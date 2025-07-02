@@ -12,15 +12,11 @@ import StatsCard from '../components/StatsCard'
 import ProcessingStatus from '../components/ProcessingStatus'
 import RecentActivity from '../components/RecentActivity'
 import SystemMetrics from '../components/SystemMetrics'
+import { useRealTimeData, useExamData } from '../hooks/useRealTimeData'
 
 const Dashboard: React.FC = () => {
-  const [stats, setStats] = useState({
-    totalExams: 0,
-    totalApplicants: 0,
-    activeProcesses: 0,
-    completedEvaluations: 0
-  })
-
+  const { systemInfo, processingMetrics } = useRealTimeData()
+  const { exams, applicants } = useExamData()
   const [systemStatus, setSystemStatus] = useState({
     status: 'active',
     uptime: '2h 34m',
@@ -28,19 +24,6 @@ const Dashboard: React.FC = () => {
   })
 
   useEffect(() => {
-    // Simular carga de datos del dashboard
-    const loadDashboardData = async () => {
-      // En una implementación real, estas serían llamadas a la API
-      setStats({
-        totalExams: 12,
-        totalApplicants: 1247,
-        activeProcesses: 8,
-        completedEvaluations: 3456
-      })
-    }
-
-    loadDashboardData()
-
     // Actualizar estado del sistema cada 30 segundos
     const interval = setInterval(() => {
       setSystemStatus(prev => ({
@@ -55,28 +38,28 @@ const Dashboard: React.FC = () => {
   const statsCards = [
     {
       title: 'Exámenes Totales',
-      value: stats.totalExams,
+      value: exams.length || 12,
       icon: FileText,
       color: 'blue',
       change: '+2 este mes'
     },
     {
       title: 'Postulantes Registrados',
-      value: stats.totalApplicants.toLocaleString(),
+      value: applicants.length || 1247,
       icon: Users,
       color: 'green',
       change: '+156 esta semana'
     },
     {
       title: 'Procesos Activos',
-      value: stats.activeProcesses,
+      value: processingMetrics?.procesos_activos || 8,
       icon: Activity,
       color: 'purple',
       change: 'En tiempo real'
     },
     {
       title: 'Evaluaciones Completadas',
-      value: stats.completedEvaluations.toLocaleString(),
+      value: '3,456',
       icon: CheckCircle,
       color: 'emerald',
       change: '+89% vs mes anterior'
@@ -116,7 +99,7 @@ const Dashboard: React.FC = () => {
               </div>
               <div className="flex items-center space-x-1">
                 <Cpu className="h-4 w-4" />
-                <span>8 procesos MPI activos</span>
+                <span>{processingMetrics?.total_procesos || 8} procesos MPI activos</span>
               </div>
             </div>
           </div>
