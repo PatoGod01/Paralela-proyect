@@ -1,6 +1,6 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import { Icon } from 'lucide-react'
+import { XIcon as Icon } from 'lucide-react'
 
 interface StatsCardProps {
   title: string
