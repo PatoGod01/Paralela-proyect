@@ -1,73 +1,13 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Terminal, Download, Search, Filter, RefreshCw } from 'lucide-react'
-
-interface LogEntry {
-  id: string
-  timestamp: string
-  level: 'info' | 'warning' | 'error' | 'success'
-  message: string
-  source: string
-}
+import { useRealTimeData } from '../hooks/useRealTimeData'
 
 const SystemLogs: React.FC = () => {
-  const [logs, setLogs] = useState<LogEntry[]>([])
+  const { activityLogs, isLoading } = useRealTimeData()
   const [isAutoRefresh, setIsAutoRefresh] = useState(true)
-
-  useEffect(() => {
-    // Simular logs del sistema
-    const generateLogs = () => {
-      const mockLogs: LogEntry[] = [
-        {
-          id: '1',
-          timestamp: '14:37:15',
-          level: 'info',
-          message: 'Sistema iniciado correctamente',
-          source: 'System'
-        },
-        {
-          id: '2',
-          timestamp: '14:37:18',
-          level: 'success',
-          message: 'Procesos MPI configurados (8 procesos)',
-          source: 'MPI'
-        },
-        {
-          id: '3',
-          timestamp: '14:37:20',
-          level: 'info',
-          message: 'Cargando datos de examen...',
-          source: 'Evaluator'
-        },
-        {
-          id: '4',
-          timestamp: '14:37:22',
-          level: 'success',
-          message: 'Datos cargados: 50,000 postulantes',
-          source: 'Database'
-        },
-        {
-          id: '5',
-          timestamp: '14:37:25',
-          level: 'info',
-          message: 'Iniciando distribución de trabajo',
-          source: 'Coordinator'
-        }
-      ]
-      setLogs(mockLogs)
-    }
-
-    generateLogs()
-
-    // Auto-refresh cada 5 segundos si está habilitado
-    const interval = setInterval(() => {
-      if (isAutoRefresh) {
-        generateLogs()
-      }
-    }, 5000)
-
-    return () => clearInterval(interval)
-  }, [isAutoRefresh])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [levelFilter, setLevelFilter] = useState('all')
 
   const getLevelColor = (level: string) => {
     switch (level) {
@@ -87,6 +27,25 @@ const SystemLogs: React.FC = () => {
       case 'info': return 'ℹ'
       default: return '•'
     }
+  }
+
+  const filteredLogs = activityLogs.filter(log => {
+    const matchesSearch = log.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         log.source.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesLevel = levelFilter === 'all' || log.level === levelFilter
+    return matchesSearch && matchesLevel
+  })
+
+  if (isLoading) {
+    return (
+      <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
+          <div className="h-96 bg-gray-900 rounded-xl"></div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -136,15 +95,21 @@ const SystemLogs: React.FC = () => {
             <input
               type="text"
               placeholder="Buscar en logs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="input-field pl-10"
             />
           </div>
-          <select className="input-field w-auto">
-            <option>Todos los niveles</option>
-            <option>Info</option>
-            <option>Success</option>
-            <option>Warning</option>
-            <option>Error</option>
+          <select 
+            value={levelFilter}
+            onChange={(e) => setLevelFilter(e.target.value)}
+            className="input-field w-auto"
+          >
+            <option value="all">Todos los niveles</option>
+            <option value="info">Info</option>
+            <option value="success">Success</option>
+            <option value="warning">Warning</option>
+            <option value="error">Error</option>
           </select>
           <button className="btn-secondary flex items-center space-x-2">
             <Filter className="h-5 w-5" />
@@ -173,7 +138,7 @@ const SystemLogs: React.FC = () => {
         </div>
 
         <div className="p-4 h-96 overflow-y-auto font-mono text-sm">
-          {logs.map((log, index) => (
+          {filteredLogs.map((log, index) => (
             <motion.div
               key={log.id}
               initial={{ opacity: 0, x: -20 }}
@@ -191,6 +156,12 @@ const SystemLogs: React.FC = () => {
               <span className="text-gray-300 flex-1">{log.message}</span>
             </motion.div>
           ))}
+          
+          {filteredLogs.length === 0 && (
+            <div className="text-gray-500 text-center py-8">
+              No se encontraron logs que coincidan con los filtros
+            </div>
+          )}
           
           {/* Cursor */}
           <div className="flex items-center space-x-3 py-1">
