@@ -1,6 +1,19 @@
 import axios from 'axios'
+import toast from 'react-hot-toast'
+import type {
+  Exam,
+  Applicant,
+  ExamSession,
+  ApplicantResponse,
+  ExamStats,
+  MPIJobResult,
+  CreateExamRequest,
+  CreateApplicantRequest,
+  BulkEnrollRequest,
+  EvaluateExamRequest,
+  SystemInfo
+} from '../types'
 
-// Configuración base de la API
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const api = axios.create({
@@ -8,241 +21,136 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000,
 })
 
-// Interceptor para manejo de errores
-api.interceptors.response.use(
-  (response) => response,
+// Request interceptor for auth (if needed)
+api.interceptors.request.use(
+  (config) => {
+    // Add auth token if available
+    const token = localStorage.getItem('auth_token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
   (error) => {
-    console.error('API Error:', error.response?.data || error.message)
     return Promise.reject(error)
   }
 )
 
-// Tipos de datos
-export interface Exam {
-  id: string
-  title: string
-  description?: string
-  duration_minutes: number
-  total_questions: number
-  total_points: number
-  status: 'draft' | 'active' | 'in_progress' | 'completed' | 'archived'
-  questions: Question[]
-  created_at: string
-  updated_at?: string
-}
-
-export interface Question {
-  id: string
-  content: string
-  question_type: 'multiple_choice' | 'true_false' | 'short_answer' | 'essay'
-  options?: string[]
-  correct_answer: string
-  points: number
-  created_at: string
-  updated_at?: string
-}
-
-export interface Applicant {
-  id: string
-  name: string
-  email: string
-  registration_number?: string
-  created_at: string
-}
-
-export interface ExamSession {
-  id: string
-  exam_id: string
-  applicant_id: string
-  start_time?: string
-  end_time?: string
-  status: string
-  created_at: string
-}
-
-export interface ApplicantResponse {
-  id: string
-  session_id: string
-  question_id: string
-  answer: string
-  is_correct?: boolean
-  points_earned?: number
-  submitted_at: string
-}
-
-export interface EvaluationResult {
-  job_id: string
-  status: string
-  start_time: string
-  end_time?: string
-  execution_time_seconds?: number
-  output_data?: any
-  error_message?: string
-}
-
-export interface ExamStats {
-  exam_id: string
-  total_participants: number
-  completed_sessions: number
-  average_score: number
-  score_distribution: Record<string, number>
-}
-
-export interface SystemInfo {
-  app_name: string
-  debug_mode: boolean
-  mpi_processor_path: string
-  database_connected: boolean
-  supported_operations: {
-    max_parallel_processes: number
-    supported_question_types: string[]
-    max_exam_duration: number
+// Response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const message = error.response?.data?.detail || error.message || 'Error en la solicitud'
+    toast.error(message)
+    return Promise.reject(error)
   }
+)
+
+// Health check
+export const healthCheck = async () => {
+  const response = await api.get('/health')
+  return response.data
 }
 
-export interface ProcessingMetrics {
-  postulantes_procesados: number
-  total_postulantes: number
-  velocidad_procesamiento: number
-  tiempo_restante: string
-  procesos_activos: number
-  total_procesos: number
-  utilizacion_promedio: number
-  procesos: Array<{
-    id: number
-    nombre: string
-    utilizacion: number
-    estado: 'activo' | 'inactivo' | 'error'
-  }>
-}
-
-export interface ActivityLog {
-  id: string
-  timestamp: string
-  level: 'info' | 'success' | 'warning' | 'error'
-  message: string
-  source: string
-}
-
-// API Functions
-export const examAPI = {
-  // Exámenes
-  getExams: () => api.get<Exam[]>('/api/v1/exams'),
-  getExam: (id: string) => api.get<Exam>(`/api/v1/exams/${id}`),
-  createExam: (data: any) => api.post<Exam>('/api/v1/exams', data),
-  activateExam: (id: string) => api.put(`/api/v1/exams/${id}/activate`),
-
-  // Postulantes
-  getApplicants: () => api.get<Applicant[]>('/api/v1/applicants'),
-  getApplicant: (id: string) => api.get<Applicant>(`/api/v1/applicants/${id}`),
-  getApplicantByEmail: (email: string) => api.get<Applicant>(`/api/v1/applicants/email/${email}`),
-  createApplicant: (data: any) => api.post<Applicant>('/api/v1/applicants', data),
-
-  // Inscripciones
-  enrollApplicants: (examId: string, applicantIds: string[]) => 
-    api.post(`/api/v1/exams/${examId}/enrollments`, { applicant_ids: applicantIds }),
-  getEnrolledApplicants: (examId: string) => 
-    api.get<Applicant[]>(`/api/v1/exams/${examId}/enrollments`),
-
-  // Sesiones
-  startAllSessions: (examId: string) => 
-    api.post(`/api/v1/exams/${examId}/start-all`),
-  submitResponse: (sessionId: string, data: any) => 
-    api.post<ApplicantResponse>(`/api/v1/sessions/${sessionId}/responses`, data),
-  endSession: (sessionId: string) => 
-    api.put(`/api/v1/sessions/${sessionId}/end`),
-  getSessionResponses: (sessionId: string) => 
-    api.get<ApplicantResponse[]>(`/api/v1/sessions/${sessionId}/responses`),
-
-  // Evaluación
-  evaluateExam: (data: any) => 
-    api.post<EvaluationResult>('/api/v1/evaluations/evaluate-exam', data),
-
-  // Reportes
-  getExamStats: (examId: string) => 
-    api.get<ExamStats>(`/api/v1/reports/exam-stats/${examId}`),
-
-  // Sistema
-  getSystemInfo: () => api.get<SystemInfo>('/api/v1/system/info'),
-  getHealthCheck: () => api.get('/health'),
-}
-
-// Funciones para simular datos en tiempo real (mientras no hay datos reales)
-export const mockAPI = {
-  getProcessingMetrics: (): Promise<ProcessingMetrics> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const procesos = Array.from({ length: 8 }, (_, i) => ({
-          id: i + 1,
-          nombre: `Proceso ${i + 1}`,
-          utilizacion: Math.floor(Math.random() * 100),
-          estado: Math.random() > 0.1 ? 'activo' : 'inactivo' as 'activo' | 'inactivo'
-        }))
-
-        const procesosActivos = procesos.filter(p => p.estado === 'activo').length
-        const utilizacionPromedio = procesos.reduce((acc, p) => acc + p.utilizacion, 0) / procesos.length
-
-        resolve({
-          postulantes_procesados: Math.floor(Math.random() * 1000),
-          total_postulantes: 50000,
-          velocidad_procesamiento: Math.floor(Math.random() * 100),
-          tiempo_restante: '--',
-          procesos_activos: procesosActivos,
-          total_procesos: 8,
-          utilizacion_promedio: utilizacionPromedio,
-          procesos
-        })
-      }, 100)
-    })
+// Exam endpoints
+export const examApi = {
+  list: async (skip = 0, limit = 100): Promise<Exam[]> => {
+    const response = await api.get(`/api/v1/exams?skip=${skip}&limit=${limit}`)
+    return response.data
   },
 
-  getActivityLogs: (): Promise<ActivityLog[]> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const logs: ActivityLog[] = [
-          {
-            id: '1',
-            timestamp: new Date(Date.now() - 5 * 60 * 1000).toLocaleTimeString('es-ES', { hour12: false }),
-            level: 'success',
-            message: 'Evaluación completada - Examen de Matemáticas - 45 postulantes',
-            source: 'Evaluator'
-          },
-          {
-            id: '2',
-            timestamp: new Date(Date.now() - 15 * 60 * 1000).toLocaleTimeString('es-ES', { hour12: false }),
-            level: 'info',
-            message: 'Nuevo postulante registrado - María González',
-            source: 'System'
-          },
-          {
-            id: '3',
-            timestamp: new Date(Date.now() - 30 * 60 * 1000).toLocaleTimeString('es-ES', { hour12: false }),
-            level: 'success',
-            message: 'Examen de Física disponible',
-            source: 'ExamManager'
-          },
-          {
-            id: '4',
-            timestamp: new Date(Date.now() - 45 * 60 * 1000).toLocaleTimeString('es-ES', { hour12: false }),
-            level: 'warning',
-            message: 'Proceso 3 con baja utilización',
-            source: 'Monitor'
-          },
-          {
-            id: '5',
-            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toLocaleTimeString('es-ES', { hour12: false }),
-            level: 'info',
-            message: 'Sistema iniciado - Todos los servicios operativos',
-            source: 'System'
-          }
-        ]
-        resolve(logs)
-      }, 100)
-    })
-  }
+  get: async (id: string): Promise<Exam> => {
+    const response = await api.get(`/api/v1/exams/${id}`)
+    return response.data
+  },
+
+  create: async (data: CreateExamRequest): Promise<Exam> => {
+    const response = await api.post('/api/v1/exams', data)
+    return response.data
+  },
+
+  activate: async (id: string): Promise<void> => {
+    await api.put(`/api/v1/exams/${id}/activate`)
+  },
+
+  getEnrolledApplicants: async (examId: string): Promise<Applicant[]> => {
+    const response = await api.get(`/api/v1/exams/${examId}/enrollments`)
+    return response.data
+  },
+
+  enrollApplicants: async (examId: string, data: BulkEnrollRequest): Promise<void> => {
+    await api.post(`/api/v1/exams/${examId}/enrollments`, data)
+  },
+
+  startAllSessions: async (examId: string): Promise<void> => {
+    await api.post(`/api/v1/exams/${examId}/start-all`)
+  },
+}
+
+// Applicant endpoints
+export const applicantApi = {
+  create: async (data: CreateApplicantRequest): Promise<Applicant> => {
+    const response = await api.post('/api/v1/applicants', data)
+    return response.data
+  },
+
+  get: async (id: string): Promise<Applicant> => {
+    const response = await api.get(`/api/v1/applicants/${id}`)
+    return response.data
+  },
+
+  getByEmail: async (email: string): Promise<Applicant> => {
+    const response = await api.get(`/api/v1/applicants/email/${email}`)
+    return response.data
+  },
+}
+
+// Session endpoints
+export const sessionApi = {
+  submitResponse: async (sessionId: string, data: { question_id: string; answer: string }): Promise<ApplicantResponse> => {
+    const response = await api.post(`/api/v1/sessions/${sessionId}/responses`, data)
+    return response.data
+  },
+
+  endSession: async (sessionId: string): Promise<void> => {
+    await api.put(`/api/v1/sessions/${sessionId}/end`)
+  },
+
+  getResponses: async (sessionId: string): Promise<ApplicantResponse[]> => {
+    const response = await api.get(`/api/v1/sessions/${sessionId}/responses`)
+    return response.data
+  },
+}
+
+// Evaluation endpoints
+export const evaluationApi = {
+  evaluateExam: async (data: EvaluateExamRequest): Promise<MPIJobResult> => {
+    const response = await api.post('/api/v1/evaluations/evaluate-exam', data)
+    return response.data
+  },
+}
+
+// Reports endpoints
+export const reportsApi = {
+  getExamStats: async (examId: string): Promise<ExamStats> => {
+    const response = await api.get(`/api/v1/reports/exam-stats/${examId}`)
+    return response.data
+  },
+}
+
+// System endpoints
+export const systemApi = {
+  getInfo: async (): Promise<SystemInfo> => {
+    const response = await api.get('/api/v1/system/info')
+    return response.data
+  },
+
+  getMyInfo: async (): Promise<any> => {
+    const response = await api.get('/api/v1/system/me')
+    return response.data
+  },
 }
 
 export default api

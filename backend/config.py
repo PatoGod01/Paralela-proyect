@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     app_name: str = "Parallel Exam System"
     debug: bool = os.getenv("DEBUG", "False").lower() == "true"
     
+    # Clerk settings
+    clerk_jwt_issuer: str = os.getenv("CLERK_JWT_ISSUER", "")
+    
     class Config:
         # Load environment variables from a .env file if it exists
         env_file = ".env"
