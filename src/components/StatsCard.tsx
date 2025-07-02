@@ -1,11 +1,11 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import { DivideIcon as LucideIcon } from 'lucide-react'
+import { Icon } from 'lucide-react'
 
 interface StatsCardProps {
   title: string
   value: string | number
-  icon: LucideIcon
+  icon: Icon
   color: 'blue' | 'green' | 'purple' | 'emerald' | 'red' | 'yellow'
   change?: string
 }

@@ -4,10 +4,8 @@ import {
   Users,
   FileText,
   Activity,
-  TrendingUp,
   Clock,
   CheckCircle,
-  AlertCircle,
   Cpu
 } from 'lucide-react'
 import StatsCard from '../components/StatsCard'
